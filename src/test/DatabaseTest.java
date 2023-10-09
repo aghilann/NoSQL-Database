@@ -38,9 +38,11 @@ public class DatabaseTest {
         String value = "{\"name\":\"John\",\"age\":30}";
 
         db.put(key, value);
+        db.put("20", "3");
 
         String retrievedValue = db.get(key);
         assertEquals(value, retrievedValue);
+        assertEquals(db.get("20"), "3");
     }
 
     @Test
@@ -141,19 +143,53 @@ public class DatabaseTest {
     }
 
     @Test
-    public void testCompaction() throws IOException {
-        // Perform 100 writes
-        for (int i = 0; i < 100; i++) {
-            db.put("key" + i, "value" + i);
-        }
+    public void testCompactWithNoGaps() throws IOException {
+        String key1 = "user123";
+        String value1 = "{\"name\":\"John\",\"age\":30}";
+        db.put(key1, value1);
 
-        // Perform 100 deletions
-        for (int i = 0; i < 100; i++) {
-            db.delete("key" + i);
-        }
+        String key2 = "user456";
+        String value2 = "{\"name\":\"Jane\",\"age\":25}";
+        db.put(key2, value2);
 
-        // Now, the data file should be at its initial or minimum size
-        File dataFile = new File(Database.DATA_FILE_NAME);
-        assertEquals(0, dataFile.length(), "Data file should be empty after deletions");
+        db.compact();
+
+        assertEquals(value1, db.get(key1));
+        assertEquals(value2, db.get(key2));
+    }
+
+    @Test
+    public void testCompactAfterDelete() throws IOException {
+        // Assuming there's a delete method in your database
+        String key1 = "user123";
+        String value1 = "{\"name\":\"John\",\"age\":30}";
+        db.put(key1, value1);
+
+        String key2 = "user456";
+        String value2 = "{\"name\":\"Jane\",\"age\":25}";
+        db.put(key2, value2);
+
+        // Delete a key-value pair to create a gap
+        db.delete(key1);
+
+        db.compact();
+
+        // Expect an exception or null value when trying to fetch a deleted key
+        assertThrows(IOException.class, () -> db.get(key1));
+        assertEquals(value2, db.get(key2));
+    }
+
+    @Test
+    public void testCompactAfterUpdate() throws IOException {
+        String key = "user123";
+        String initialValue = "{\"name\":\"John\",\"age\":30}";
+        String updatedValue = "{\"name\":\"Jane\",\"age\":25}";
+
+        db.put(key, initialValue);
+        db.put(key, updatedValue);
+
+        db.compact();
+
+        assertEquals(updatedValue, db.get(key));
     }
 }
