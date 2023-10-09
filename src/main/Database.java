@@ -27,12 +27,16 @@ public class Database {
     private final Object dataFileLock = new Object();
     private final AtomicInteger deletionsCounter = new AtomicInteger(0);
     private final ReentrantLock resizeLock = new ReentrantLock();
+    private final LRUCache<String, String> cache;
+    private boolean isCachingOn = false;
 
-    public Database() throws IOException {
+    public Database(boolean isCachingOn) throws IOException {
         this.bucketFileManager = new FileManager(BUCKET_FILE_NAME, "rw");
         this.dataFileManager = new FileManager(DATA_FILE_NAME, "rw");
         this.bucketManager = new BucketManager();
         this.lockManager = new LockManager(BucketManager.NUM_BUCKETS);
+        this.cache = new LRUCache<String, String>(10);
+        this.isCachingOn = isCachingOn;
 
         if (bucketFileManager.getFileLength() == 0) {
             for (int i = 0; i < BucketManager.NUM_BUCKETS; i++) {
@@ -42,6 +46,7 @@ public class Database {
     }
 
     public void put(String key, @NotNull String jsonValue) throws IOException {
+        cache.setValue(key, jsonValue);
         long bucketIndex = bucketManager.getBucketIndex(key);
         ReentrantReadWriteLock lock = lockManager.getLock((int) bucketIndex);
         lock.writeLock().lock();
@@ -82,6 +87,7 @@ public class Database {
             }
 
             bucketFileManager.writePointerAt(positionPointer, -1L);
+            cache.remove(key);
 
             if (deletionsCounter.incrementAndGet() >= DELETION_THRESHOLD) {
                 compact();
@@ -95,11 +101,14 @@ public class Database {
         } finally {
             lock.writeLock().unlock();
         }
-
         return true;
     }
 
     public String get(String key) throws IOException {
+        String value = cache.getValue(key);
+        if (isCachingOn && value != null) {
+            return value;
+        }
         long bucketIndex = bucketManager.getBucketIndex(key);
         ReentrantReadWriteLock lock = lockManager.getLock((int) bucketIndex);
         lock.readLock().lock();
@@ -115,7 +124,9 @@ public class Database {
             int jsonDataLength = dataFileManager.readIntAt(pointer);
             byte[] jsonData = new byte[jsonDataLength];
             dataFileManager.read(jsonData);
-            return new String(jsonData);
+            String jsonDataAsString = new String(jsonData);
+            cache.setValue(key, jsonDataAsString);
+            return jsonDataAsString;
 
         } finally {
             lock.readLock().unlock();

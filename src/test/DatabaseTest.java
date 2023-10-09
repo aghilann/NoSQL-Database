@@ -20,7 +20,7 @@ public class DatabaseTest {
 
     @BeforeEach
     public void setUp() throws IOException {
-        db = new Database();
+        db = new Database(true);
     }
 
     @AfterEach
