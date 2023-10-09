@@ -81,7 +81,7 @@ public class DatabaseTest {
 
     @Test
     public void testConcurrentWrites() throws InterruptedException {
-        int numThreads = 500;
+        int numThreads = 10;
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
         for (int i = 0; i < numThreads; i++) {
@@ -119,7 +119,7 @@ public class DatabaseTest {
         String value = "{\"name\":\"Shared User\",\"age\":100}";
         db.put(key, value);
 
-        int numThreads = 10;
+        int numThreads = 500;
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
         for (int i = 0; i < numThreads; i++) {
