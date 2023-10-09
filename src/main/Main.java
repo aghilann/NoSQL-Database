@@ -9,7 +9,7 @@ import java.io.IOException;
 public class Main {
     public static void main(String[] args) {
         try {
-            Database db = new Database();
+            Database db = new Database(false);
             db.close();
 
         } catch (IOException e) {
